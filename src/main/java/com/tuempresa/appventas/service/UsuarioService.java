@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Random;
 
 @Service
 public class UsuarioService {
@@ -242,5 +243,89 @@ public class UsuarioService {
                     return usuarioRepository.save(usuario);
                 })
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    }
+
+    //NUEVO: Solicitar recuperación de contraseña
+    public void solicitarRecuperacionPassword(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email);
+
+        if (usuario == null) {
+            throw new RuntimeException("No existe una cuenta con ese email");
+        }
+
+        // Generar código de 6 dígitos
+        String codigo = String.format("%06d", new Random().nextInt(999999));
+
+        usuario.setResetPasswordToken(codigo);
+
+        // Expira en 15 minutos
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(new Date());
+        calendar.add(Calendar.MINUTE, 15);
+        usuario.setResetPasswordExpiracion(calendar.getTime());
+
+        usuarioRepository.save(usuario);
+
+        // Enviar email con el código
+        emailService.enviarCodigoRecuperacion(
+                usuario.getEmail(),
+                usuario.getNombre(),
+                codigo
+        );
+    }
+
+    //NUEVO: Verificar código de recuperación
+    public boolean verificarCodigoRecuperacion(String email, String codigo) {
+        Usuario usuario = usuarioRepository.findByEmail(email);
+
+        if (usuario == null) {
+            return false;
+        }
+
+        if (usuario.getResetPasswordToken() == null) {
+            return false;
+        }
+
+        // Verificar si el código coincide
+        if (!usuario.getResetPasswordToken().equals(codigo)) {
+            return false;
+        }
+
+        // Verificar si no ha expirado
+        if (usuario.getResetPasswordExpiracion().before(new Date())) {
+            return false;
+        }
+
+        return true;
+    }
+
+    //NUEVO: Restablecer contraseña
+    public void restablecerPassword(String email, String codigo, String nuevaPassword) {
+        Usuario usuario = usuarioRepository.findByEmail(email);
+
+        if (usuario == null) {
+            throw new RuntimeException("Usuario no encontrado");
+        }
+
+        // Verificar código
+        if (!verificarCodigoRecuperacion(email, codigo)) {
+            throw new RuntimeException("Código inválido o expirado");
+        }
+
+        // Actualizar contraseña
+        String passwordCifrada = passwordEncoder.encode(nuevaPassword);
+        usuario.setPassword(passwordCifrada);
+
+        // Limpiar tokens de recuperación
+        usuario.setResetPasswordToken(null);
+        usuario.setResetPasswordExpiracion(null);
+
+        usuarioRepository.save(usuario);
+
+        // Enviar confirmación por email
+        emailService.enviarConfirmacionCambioPassword(
+                usuario.getEmail(),
+                usuario.getNombre()
+        );
     }
 }
