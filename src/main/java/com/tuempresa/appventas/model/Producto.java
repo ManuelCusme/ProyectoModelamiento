@@ -19,29 +19,29 @@ public class Producto {
 
     private double precio;
 
-    //ACTUALIZADO: 5 URLs de imágenes
-    @Column(length = 1000)
+    // 5 URLs de imágenes (hasta 1000 chars cada una)
+    @Column(name = "imagen_url1", length = 1000)
     private String imagenUrl1;
 
-    @Column(length = 1000)
+    @Column(name = "imagen_url2", length = 1000)
     private String imagenUrl2;
 
-    @Column(length = 1000)
+    @Column(name = "imagen_url3", length = 1000)
     private String imagenUrl3;
 
-    @Column(length = 1000)
+    @Column(name = "imagen_url4", length = 1000)
     private String imagenUrl4;
 
-    @Column(length = 1000)
+    @Column(name = "imagen_url5", length = 1000)
     private String imagenUrl5;
 
     private String ubicacion;
     private Boolean disponibilidad = true;
-    private String tipo;
-    private String estado;
+    private String tipo; // Electrónicos, Ropa, Hogar, etc.
+    private String estado; // ACTIVO, OCULTO, PROHIBIDO, EN_REVISION
 
-    private Integer cantidad;
-    private String estadoProducto;
+    private Integer cantidad; // Stock disponible
+    private String estadoProducto; // Nuevo, Semi nuevo, Usado, etc.
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date fechaPublicacion;
@@ -65,11 +65,13 @@ public class Producto {
         this.estado = "ACTIVO";
         this.disponibilidad = true;
         this.fechaPublicacion = new Date();
-        this.cantidad = 1;
+        this.cantidad = 1; // Por defecto 1
+        // Generar código automático
         this.codigo = "PROD-" + System.currentTimeMillis();
     }
 
-    // Getters y Setters
+    // Getters / Setters (incluyendo las 5 imágenes)
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -85,7 +87,6 @@ public class Producto {
     public double getPrecio() { return precio; }
     public void setPrecio(double precio) { this.precio = precio; }
 
-    //NUEVO: Getters y Setters para las 5 imágenes
     public String getImagenUrl1() { return imagenUrl1; }
     public void setImagenUrl1(String imagenUrl1) { this.imagenUrl1 = imagenUrl1; }
 

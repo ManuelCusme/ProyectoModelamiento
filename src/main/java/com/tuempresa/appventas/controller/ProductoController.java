@@ -1,174 +1,118 @@
 package com.tuempresa.appventas.controller;
 
-import org.springframework.web.bind.annotation.*;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
 import com.tuempresa.appventas.model.Producto;
+import com.tuempresa.appventas.model.Usuario;
 import com.tuempresa.appventas.service.ProductoService;
 import com.tuempresa.appventas.service.UsuarioService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import java.util.List;
-import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Controller de productos.
+ * - DELETE /api/productos/{id} -> BORRADO DEFINITIVO (elimina reportes e historial primero).
+ * - POST /api/productos/{id}/ocultar -> cambia estado a OCULTO (no borra físicamente).
+ *
+ * NOTAS:
+ * - Asegúrate de que ProductoService.eliminarProductoDefinitivo sea @Transactional y borre reportes/historial antes del producto.
+ * - Si usas autenticación (JWT/Security), reemplaza los TODOs por checks usando el principal/claims para validar permisos.
+ */
 @RestController
 @RequestMapping("/api/productos")
 @CrossOrigin(origins = "*")
 public class ProductoController {
 
     private final ProductoService productoService;
-    private final UsuarioService usuarioService;
+    private final UsuarioService usuarioService; // opcional: para obtener usuario actual / validar permisos
 
     public ProductoController(ProductoService productoService, UsuarioService usuarioService) {
         this.productoService = productoService;
         this.usuarioService = usuarioService;
     }
 
-    // OBTENER PRODUCTOS ACTIVOS
+    // Listar productos (puedes extender con paginación/filtros por query params)
     @GetMapping
-    public ResponseEntity<List<Producto>> listarProductosActivos() {
-        try {
-            List<Producto> productos = productoService.obtenerProductosActivos();
-            return ResponseEntity.ok(productos);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+    public ResponseEntity<List<Producto>> listar(@RequestParam(required = false) String estado) {
+        if (estado != null && !estado.isBlank()) {
+            // Si quieres filtrar por estado añade método al servicio/repo
+            // Por ahora devolvemos todos activos si no se pide estado
         }
+        return ResponseEntity.ok(productoService.obtenerProductosActivos());
     }
 
-    // CREAR PRODUCTO
-    @PostMapping
-    public ResponseEntity<?> crearProducto(@RequestBody Producto producto) {
-        try {
-            if (producto.getVendedor() == null || producto.getVendedor().getId() == null) {
-                return ResponseEntity.badRequest().body("El vendedorId es obligatorio");
-            }
-
-            Long vendedorId = producto.getVendedor().getId();
-            var vendedor = usuarioService.obtenerPorId(vendedorId)
-                    .orElseThrow(() -> new RuntimeException("Vendedor no encontrado"));
-
-            Producto nuevoProducto = productoService.crearProducto(producto, vendedor);
-            return ResponseEntity.ok(nuevoProducto);
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    // OBTENER PRODUCTO POR ID
+    // Obtener producto por id
     @GetMapping("/{id}")
-    public ResponseEntity<?> obtenerProducto(@PathVariable Long id) {
-        try {
-            Producto producto = productoService.obtenerPorId(id);
-            return ResponseEntity.ok(producto);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Producto> obtener(@PathVariable Long id) {
+        Producto p = productoService.obtenerPorId(id);
+        return ResponseEntity.ok(p);
     }
 
-    // OBTENER PRODUCTOS POR VENDEDOR
-    @GetMapping("/vendedor/{vendedorId}")
-    public ResponseEntity<List<Producto>> obtenerPorVendedor(@PathVariable Long vendedorId) {
+    // Crear producto
+    @PostMapping
+    public ResponseEntity<?> crear(@RequestBody Producto producto) {
         try {
-            List<Producto> productos = productoService.obtenerProductosPorVendedor(vendedorId);
-            return ResponseEntity.ok(productos);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    // ⭐ ACTUALIZAR PRODUCTO (CON VALIDACIÓN DE PROPIEDAD)
-    @PutMapping("/{id}")
-    public ResponseEntity<?> actualizarProducto(
-            @PathVariable Long id,
-            @RequestBody Producto productoActualizado,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        try {
-            // Obtener el producto actual
-            Producto productoActual = productoService.obtenerPorId(id);
-
-            // Validar que el usuario es el dueño
-            Long vendedorIdDelProducto = productoActual.getVendedor().getId();
-            Long vendedorIdEnviado = productoActualizado.getVendedor() != null ?
-                    productoActualizado.getVendedor().getId() : null;
-
-            if (vendedorIdEnviado == null) {
-                Map<String, String> error = new HashMap<>();
-                error.put("message", "ID de vendedor no proporcionado");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+            // Se espera que cliente envíe vendedor.id en el body o que asignes vendedor desde el token.
+            Usuario vendedor = producto.getVendedor();
+            if (vendedor == null || vendedor.getId() == null) {
+                // Si no viene vendedor, intentar obtener usuario actual desde servicio de autenticación
+                // TODO: obtener usuario actual desde token si tu app lo soporta
+                return ResponseEntity.badRequest().body("El vendedor (vendedor.id) es obligatorio");
             }
-
-            if (!vendedorIdDelProducto.equals(vendedorIdEnviado)) {
-                Map<String, String> error = new HashMap<>();
-                error.put("message", "No tienes permiso para editar este producto");
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
-            }
-
-            // Actualizar producto
-            Producto producto = productoService.actualizarProducto(id, productoActualizado);
-            return ResponseEntity.ok(producto);
-
-        } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
-    }
-
-    // ⭐ NUEVO: ELIMINAR PRODUCTO (físicamente)
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> eliminarProducto(@PathVariable Long id) {
-        try {
-            // Verificar que el producto existe
-            Producto producto = productoService.obtenerPorId(id);
-
-            // Eliminar definitivamente
-            productoService.eliminarProductoDefinitivo(id);
-
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "Producto eliminado correctamente");
-            return ResponseEntity.ok(response);
-
-        } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
-        }
-    }
-
-    // FILTRAR POR PRECIO
-    @GetMapping("/filtros/precio")
-    public ResponseEntity<List<Producto>> filtrarPorPrecio(
-            @RequestParam Double min,
-            @RequestParam Double max) {
-        try {
-            List<Producto> productos = productoService.filtrarPorPrecio(min, max);
-            return ResponseEntity.ok(productos);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    // BUSCAR POR NOMBRE
-    @GetMapping("/buscar")
-    public ResponseEntity<List<Producto>> buscarPorNombre(@RequestParam String nombre) {
-        try {
-            List<Producto> productos = productoService.buscarPorNombre(nombre);
-            return ResponseEntity.ok(productos);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
-    // CAMBIAR ESTADO
-    @PutMapping("/{id}/estado")
-    public ResponseEntity<?> cambiarEstado(
-            @PathVariable Long id,
-            @RequestParam String nuevoEstado) {
-        try {
-            Producto producto = productoService.cambiarEstadoProducto(id, nuevoEstado);
-            return ResponseEntity.ok(producto);
+            Producto creado = productoService.crearProducto(producto, vendedor);
+            return ResponseEntity.ok(creado);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // Actualizar producto
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Producto producto) {
+        try {
+            // Validación de permisos: solo dueño o admin
+            // TODO: validar que el usuario que hace la petición sea producto.vendedor.id o tenga rol ADMIN
+            Producto actualizado = productoService.actualizarProducto(id, producto);
+            return ResponseEntity.ok(actualizado);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // Cambiar estado (ej. OCULTO) — endpoint aparte si prefieres no usar DELETE para ocultar
+    @PostMapping("/{id}/ocultar")
+    public ResponseEntity<?> ocultar(@PathVariable Long id) {
+        try {
+            Producto oculto = productoService.eliminarProducto(id); // cambia estado a OCULTO
+            return ResponseEntity.ok(oculto);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // DELETE definitivo (físico). Borrar reportes e historial antes de borrar producto.
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> eliminarDefinitivo(@PathVariable Long id) {
+        try {
+            // Opcional: validar permiso del usuario que solicita el borrado
+            // TODO: validar propietario o ADMIN aquí
+
+            productoService.eliminarProductoDefinitivo(id);
+            return ResponseEntity.ok(Map.of("message", "Producto eliminado definitivamente"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500).body(Map.of("error", "No se pudo eliminar producto", "details", e.getMessage()));
+        }
+    }
+
+    // Obtener productos por vendedor
+    @GetMapping("/vendedor/{vendedorId}")
+    public ResponseEntity<List<Producto>> porVendedor(@PathVariable Long vendedorId) {
+        return ResponseEntity.ok(productoService.obtenerProductosPorVendedor(vendedorId));
+    }
+
+    // Búsqueda por nombre (ejemplo)
+    @GetMapping("/buscar")
+    public ResponseEntity<List<Producto>> buscar(@RequestParam String nombre) {
+        return ResponseEntity.ok(productoService.buscarPorNombre(nombre));
     }
 }

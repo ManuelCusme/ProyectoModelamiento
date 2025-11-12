@@ -20,7 +20,6 @@ public class ProductoService {
     @Autowired
     private HistorialRepository historialRepository;
 
-    //NUEVO: Inyectar ReporteRepository
     @Autowired
     private ReporteRepository reporteRepository;
 
@@ -69,16 +68,13 @@ public class ProductoService {
                     producto.setTipo(productoActualizado.getTipo());
                     producto.setUbicacion(productoActualizado.getUbicacion());
                     producto.setDisponibilidad(productoActualizado.getDisponibilidad());
-                    producto.setCantidad(productoActualizado.getCantidad());
-                    producto.setEstadoProducto(productoActualizado.getEstadoProducto());
-
-                    //ACTUALIZADO: Actualizar las 5 imágenes
                     producto.setImagenUrl1(productoActualizado.getImagenUrl1());
                     producto.setImagenUrl2(productoActualizado.getImagenUrl2());
                     producto.setImagenUrl3(productoActualizado.getImagenUrl3());
                     producto.setImagenUrl4(productoActualizado.getImagenUrl4());
                     producto.setImagenUrl5(productoActualizado.getImagenUrl5());
-
+                    producto.setCantidad(productoActualizado.getCantidad());
+                    producto.setEstadoProducto(productoActualizado.getEstadoProducto());
                     return productoRepository.save(producto);
                 })
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
@@ -99,26 +95,26 @@ public class ProductoService {
         return cambiarEstadoProducto(id, "OCULTO");
     }
 
-    // ✅ ACTUALIZADO: Eliminar producto definitivo (físicamente de la BD)
+    //Eliminar producto definitivo (físicamente de la BD)
     @Transactional
     public void eliminarProductoDefinitivo(Long id) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
-
+        // Borrar reportes relacionados (si existen)
         try {
-            // ✅ PASO 1: Eliminar reportes relacionados
             reporteRepository.deleteByProductoId(id);
-
-            // ✅ PASO 2: Eliminar historial relacionado
-            historialRepository.deleteByProductoId(id);
-
-            // ✅ PASO 3: Ahora sí eliminar el producto
-            productoRepository.delete(producto);
-
         } catch (Exception e) {
-            System.err.println("Error al eliminar producto: " + e.getMessage());
-            throw new RuntimeException("No se pudo eliminar el producto: " + e.getMessage());
+            // Log pero continuar: si no existe o falla, lo manejamos en la transacción
+            System.err.println("Aviso: error borrando reportes: " + e.getMessage());
         }
+        // Borrar historial relacionado
+        try {
+            historialRepository.deleteByProductoId(id);
+        } catch (Exception e) {
+            System.err.println("Aviso: error borrando historial: " + e.getMessage());
+        }
+        // Finalmente borrar el producto
+        productoRepository.delete(producto);
     }
 
     // FILTRAR PRODUCTOS POR PRECIO
