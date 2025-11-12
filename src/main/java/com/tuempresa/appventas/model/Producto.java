@@ -19,17 +19,29 @@ public class Producto {
 
     private double precio;
 
-    // ✅ ARREGLADO: Aumentar longitud de imagenUrl a 1000 caracteres
+    //ACTUALIZADO: 5 URLs de imágenes
     @Column(length = 1000)
-    private String imagenUrl;
+    private String imagenUrl1;
+
+    @Column(length = 1000)
+    private String imagenUrl2;
+
+    @Column(length = 1000)
+    private String imagenUrl3;
+
+    @Column(length = 1000)
+    private String imagenUrl4;
+
+    @Column(length = 1000)
+    private String imagenUrl5;
 
     private String ubicacion;
     private Boolean disponibilidad = true;
-    private String tipo; // Electrónicos, Ropa, Hogar, etc.
-    private String estado; // ACTIVO, OCULTO, PROHIBIDO, EN_REVISION
+    private String tipo;
+    private String estado;
 
-    private Integer cantidad; // Stock disponible
-    private String estadoProducto; // Nuevo, Semi nuevo, Usado, etc.
+    private Integer cantidad;
+    private String estadoProducto;
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date fechaPublicacion;
@@ -53,11 +65,11 @@ public class Producto {
         this.estado = "ACTIVO";
         this.disponibilidad = true;
         this.fechaPublicacion = new Date();
-        this.cantidad = 1; // Por defecto 1
-        // Generar código automático
+        this.cantidad = 1;
         this.codigo = "PROD-" + System.currentTimeMillis();
     }
 
+    // Getters y Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -73,8 +85,21 @@ public class Producto {
     public double getPrecio() { return precio; }
     public void setPrecio(double precio) { this.precio = precio; }
 
-    public String getImagenUrl() { return imagenUrl; }
-    public void setImagenUrl(String imagenUrl) { this.imagenUrl = imagenUrl; }
+    //NUEVO: Getters y Setters para las 5 imágenes
+    public String getImagenUrl1() { return imagenUrl1; }
+    public void setImagenUrl1(String imagenUrl1) { this.imagenUrl1 = imagenUrl1; }
+
+    public String getImagenUrl2() { return imagenUrl2; }
+    public void setImagenUrl2(String imagenUrl2) { this.imagenUrl2 = imagenUrl2; }
+
+    public String getImagenUrl3() { return imagenUrl3; }
+    public void setImagenUrl3(String imagenUrl3) { this.imagenUrl3 = imagenUrl3; }
+
+    public String getImagenUrl4() { return imagenUrl4; }
+    public void setImagenUrl4(String imagenUrl4) { this.imagenUrl4 = imagenUrl4; }
+
+    public String getImagenUrl5() { return imagenUrl5; }
+    public void setImagenUrl5(String imagenUrl5) { this.imagenUrl5 = imagenUrl5; }
 
     public String getUbicacion() { return ubicacion; }
     public void setUbicacion(String ubicacion) { this.ubicacion = ubicacion; }

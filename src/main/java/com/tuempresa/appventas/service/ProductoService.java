@@ -4,8 +4,10 @@ import com.tuempresa.appventas.model.Producto;
 import com.tuempresa.appventas.model.Usuario;
 import com.tuempresa.appventas.repository.ProductoRepository;
 import com.tuempresa.appventas.repository.HistorialRepository;
+import com.tuempresa.appventas.repository.ReporteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Date;
 
@@ -17,6 +19,10 @@ public class ProductoService {
 
     @Autowired
     private HistorialRepository historialRepository;
+
+    //NUEVO: Inyectar ReporteRepository
+    @Autowired
+    private ReporteRepository reporteRepository;
 
     // CREAR PRODUCTO
     public Producto crearProducto(Producto producto, Usuario vendedor) {
@@ -63,7 +69,16 @@ public class ProductoService {
                     producto.setTipo(productoActualizado.getTipo());
                     producto.setUbicacion(productoActualizado.getUbicacion());
                     producto.setDisponibilidad(productoActualizado.getDisponibilidad());
-                    producto.setImagenUrl(productoActualizado.getImagenUrl());
+                    producto.setCantidad(productoActualizado.getCantidad());
+                    producto.setEstadoProducto(productoActualizado.getEstadoProducto());
+
+                    //ACTUALIZADO: Actualizar las 5 imágenes
+                    producto.setImagenUrl1(productoActualizado.getImagenUrl1());
+                    producto.setImagenUrl2(productoActualizado.getImagenUrl2());
+                    producto.setImagenUrl3(productoActualizado.getImagenUrl3());
+                    producto.setImagenUrl4(productoActualizado.getImagenUrl4());
+                    producto.setImagenUrl5(productoActualizado.getImagenUrl5());
+
                     return productoRepository.save(producto);
                 })
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
@@ -84,16 +99,26 @@ public class ProductoService {
         return cambiarEstadoProducto(id, "OCULTO");
     }
 
-    // ✅ ELIMINAR PRODUCTO DEFINITIVO (físicamente de la BD)
+    // ✅ ACTUALIZADO: Eliminar producto definitivo (físicamente de la BD)
+    @Transactional
     public void eliminarProductoDefinitivo(Long id) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
 
-        // ✅ PRIMERO: Eliminar historial relacionado
-        historialRepository.deleteByProductoId(id);
+        try {
+            // ✅ PASO 1: Eliminar reportes relacionados
+            reporteRepository.deleteByProductoId(id);
 
-        // ✅ SEGUNDO: Eliminar el producto
-        productoRepository.delete(producto);
+            // ✅ PASO 2: Eliminar historial relacionado
+            historialRepository.deleteByProductoId(id);
+
+            // ✅ PASO 3: Ahora sí eliminar el producto
+            productoRepository.delete(producto);
+
+        } catch (Exception e) {
+            System.err.println("Error al eliminar producto: " + e.getMessage());
+            throw new RuntimeException("No se pudo eliminar el producto: " + e.getMessage());
+        }
     }
 
     // FILTRAR PRODUCTOS POR PRECIO
